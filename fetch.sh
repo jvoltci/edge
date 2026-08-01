@@ -17,15 +17,27 @@
 # decoder_with_past_model separately, which is ~2x the bytes for the same result
 # because the merged graph handles both the first token and the cached rest.
 #
-# Why these two model sizes and no third: whisper-small's merged decoder is
-# 156 MB and GitHub hard-blocks any file over 100 MiB on push. Git LFS is the
-# documented answer and it is not an option here, because GitHub Pages does not
-# serve LFS content. So 100 MiB per file is a real ceiling, not a preference.
-#
 # Why multilingual and not the .en variants: identical byte size. whisper-base
 # and whisper-base.en both quantise to 23,201,3xx + 53,69x,xxx. The multilingual
 # model handles 99 languages for the same download, so the .en builds have
 # nothing to offer.
+#
+# ── the 100 MiB ceiling, and why it is no longer a ceiling ───────────────────
+#
+# GitHub hard-blocks any file over 100 MiB on push. Git LFS is the documented
+# answer and does not work here, because GitHub Pages serves the LFS pointer
+# text rather than the bytes. That limit — not the browser, not the decoder —
+# is the whole reason this repo stopped at whisper-base, whose 58% word recall
+# was in turn the reason live subtitles looked broken.
+#
+# So files over the limit are now split here and rejoined in the browser's fetch
+# layer (see model-parts.ts in the tools repo). Each `<file>.onnx` over the
+# threshold becomes `<file>.onnx.part0`, `.part1`, … and an entry in
+# models/parts.json giving the part count and the rejoined length. The app asks
+# for the original name and never learns the difference.
+#
+# Nothing about a model needs to change to be published this way, so the list
+# below is now bounded by what runs fast enough, not by what fits.
 
 set -euo pipefail
 cd "$(dirname "$0")"
@@ -47,7 +59,54 @@ do
 done
 : "${ORT_SRC:?onnxruntime-web not found in the tools repo — run npm install there first}"
 
-MODELS=(whisper-tiny whisper-base)
+# `<hf-org>/<hf-name>` — served under <hf-name>. Two orgs now, because the
+# distil-whisper models are published by their own authors and not mirrored into
+# onnx-community.
+#
+# whisper-small is deliberately NOT here. It was published, measured against two
+# films with their own subtitle tracks, and lost:
+#
+#                  film 1 WER   film 2      speed        download
+#   whisper-base       55.8%    40.9%      3.8x realtime    81 MB
+#   whisper-small      57.1%       —       1.2x realtime   253 MB
+#
+# Three times slower for no accuracy, so it is not worth 240 MB of this repo.
+# The splitting machinery it was added to prove out is what stayed.
+#
+# The distil models are the reason that machinery was worth building. They are
+# not "whisper but bigger" — they keep the full encoder and throw away all but
+# two decoder layers, so distil-small.en carries a 76 MB decoder where
+# whisper-small needs 149 MB. English only, which is why asr.ts has to know
+# which models can be told to translate.
+# distil-medium.en was published, measured and removed in the same session. It
+# is the only model tried so far that produced degenerate output — 17 of its 171
+# cues on a seven-minute episode contained no letter at all, just ".", ".." and
+# "......", each with its own timestamp, marching across a scene of music:
+#
+#                    WER     speed
+#   distil-small.en  54.4%   4.1x realtime   176 MB
+#   whisper-base     55.8%   9.4x realtime    81 MB
+#   distil-medium.en 83.6%   1.5x realtime   407 MB
+#
+# That failure is a decoding problem rather than a model one — OpenAI's own
+# implementation re-runs a window at a higher temperature when it detects a
+# collapse like this, and nothing here does. Worth revisiting if that gets
+# built. Not worth 407 MB in the meantime.
+MODELS=(
+  onnx-community/whisper-tiny
+  onnx-community/whisper-base
+  distil-whisper/distil-small.en
+)
+
+# Split anything at or above this, in MiB.
+#
+# 90 leaves ten MiB of headroom under the 100 MiB refusal without splitting
+# anything git would have accepted. The tempting alternative is 48, which also
+# clears GitHub's 50 MiB *advisory* warning — but whisper-base's decoder is
+# 51 MiB, so that would re-cut a file that has been served whole for months and
+# invalidate it in every browser cache that already holds it. A one-time warning
+# on push is cheaper than a re-download for everyone who has used the tool.
+PART_MIB=90
 
 # Everything a tokenizer/processor might reach for. These are all small (the
 # largest, tokenizer.json, is ~2.4 MB) so the whole set is mirrored rather than
@@ -77,9 +136,10 @@ get() { # url dest
 }
 
 echo "==> models"
-for m in "${MODELS[@]}"; do
+for repo in "${MODELS[@]}"; do
+  m="${repo##*/}"
   for f in "${SUPPORT[@]}" "${WEIGHTS[@]}"; do
-    url="https://huggingface.co/onnx-community/$m/resolve/main/$f"
+    url="https://huggingface.co/$repo/resolve/main/$f"
     dest="models/$m/$f"
     # added_tokens.json is absent from some exports; every other file is required.
     if ! get "$url" "$dest" 2>/dev/null; then
@@ -93,6 +153,51 @@ for m in "${MODELS[@]}"; do
     printf '    %10d  %s\n' "$(wc -c <"$dest")" "$dest"
   done
 done
+
+echo "==> splitting anything git would refuse"
+# Rewritten from nothing every run, so a model dropped from MODELS above cannot
+# leave a stale entry behind claiming a file is split when it is gone.
+python3 - "$PART_MIB" <<'PY'
+import json, pathlib, sys
+
+part_bytes = int(sys.argv[1]) * 1024 * 1024
+models = pathlib.Path("models")
+
+# Yesterday's pieces, before anything is measured. A part left over from a run
+# with a different PART_MIB would otherwise survive next to the new ones and be
+# served as though it belonged.
+for stale in models.rglob("*.onnx.part*"):
+    stale.unlink()
+
+manifest = {}
+for weights in sorted(models.rglob("*.onnx")):
+    total = weights.stat().st_size
+    if total < part_bytes:
+        continue
+
+    count = 0
+    with weights.open("rb") as src:
+        while chunk := src.read(part_bytes):
+            (weights.parent / f"{weights.name}.part{count}").write_bytes(chunk)
+            count += 1
+
+    # Read back what was written rather than trusting the arithmetic: this is
+    # the one place where being wrong produces a model that loads and is subtly
+    # corrupt, which is far worse than one that fails outright.
+    rejoined = b"".join(
+        (weights.parent / f"{weights.name}.part{i}").read_bytes() for i in range(count)
+    )
+    if rejoined != weights.read_bytes():
+        sys.exit(f"!!! {weights} does not survive a split/rejoin round trip")
+
+    weights.unlink()
+    key = str(weights.relative_to(models))
+    manifest[key] = {"parts": count, "bytes": total}
+    print(f"    {total:10d}  {key} -> {count} parts")
+
+(models / "parts.json").write_text(json.dumps(manifest, indent=2, sort_keys=True) + "\n")
+print(f"    {len(manifest)} split file(s) recorded in models/parts.json")
+PY
 
 echo "==> onnxruntime-web $ONNX_VERSION"
 # Both variants, because transformers.js picks between them at runtime: the
