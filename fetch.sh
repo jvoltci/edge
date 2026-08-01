@@ -30,8 +30,22 @@
 set -euo pipefail
 cd "$(dirname "$0")"
 
-ONNX_VERSION="1.26.0-dev.20260416-b7804b056c"
-ORT_SRC="../tools/node_modules/onnxruntime-web/dist"
+# Pinned to 1.24.3 by an npm override in the tools repo, NOT the version
+# transformers.js depends on. ONNX Runtime 1.25 added a graph optimisation that
+# rewrites QDQ into MatMulNBits and then rejects these Whisper exports with
+# "Missing required scale: model.decoder.embed_tokens.weight_merged_0_scale".
+# See microsoft/onnxruntime#28306 and huggingface/transformers.js#1707. 1.24.3
+# is the last stable release before that change.
+ONNX_VERSION="1.24.3"
+
+# The override nests the package, so look in both places rather than assuming.
+for c in \
+  "../tools/node_modules/onnxruntime-web/dist" \
+  "../tools/node_modules/@huggingface/transformers/node_modules/onnxruntime-web/dist"
+do
+  [ -d "$c" ] && ORT_SRC="$c"
+done
+: "${ORT_SRC:?onnxruntime-web not found in the tools repo — run npm install there first}"
 
 MODELS=(whisper-tiny whisper-base)
 
