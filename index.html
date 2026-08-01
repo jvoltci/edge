@@ -1,0 +1,154 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>edge — static assets for jvoltci.github.io/tools</title>
+    <meta
+      name="description"
+      content="Whisper weights and ONNX Runtime wasm, served same-origin so the tools never call a third-party CDN."
+    />
+    <style>
+      :root {
+        color-scheme: light dark;
+        --fg: #16161a;
+        --dim: #5c5c66;
+        --line: #dcdce3;
+        --bg: #fdfdfd;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --fg: #e8e8ee;
+          --dim: #9a9aa6;
+          --line: #2c2c34;
+          --bg: #131316;
+        }
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0 auto;
+        padding: 3rem 1.25rem 5rem;
+        max-width: 46rem;
+        background: var(--bg);
+        color: var(--fg);
+        font: 16px/1.65 ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif;
+      }
+      h1 {
+        font-size: 1.5rem;
+        margin: 0 0 0.25rem;
+      }
+      .sub {
+        color: var(--dim);
+        margin: 0 0 2.5rem;
+      }
+      h2 {
+        font-size: 0.8rem;
+        text-transform: uppercase;
+        letter-spacing: 0.07em;
+        color: var(--dim);
+        margin: 2.5rem 0 0.75rem;
+        font-weight: 600;
+      }
+      table {
+        border-collapse: collapse;
+        width: 100%;
+        font-size: 0.9rem;
+      }
+      th,
+      td {
+        text-align: left;
+        padding: 0.5rem 0.75rem 0.5rem 0;
+        border-bottom: 1px solid var(--line);
+        vertical-align: top;
+      }
+      th {
+        color: var(--dim);
+        font-weight: 500;
+        font-size: 0.8rem;
+      }
+      td.n {
+        font-variant-numeric: tabular-nums;
+        white-space: nowrap;
+      }
+      code {
+        font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+        font-size: 0.875em;
+      }
+      a {
+        color: inherit;
+      }
+      p {
+        margin: 0 0 1rem;
+      }
+      .note {
+        border-left: 2px solid var(--line);
+        padding-left: 1rem;
+        color: var(--dim);
+        font-size: 0.9rem;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>edge</h1>
+    <p class="sub">
+      Static assets for
+      <a href="https://jvoltci.github.io/tools">jvoltci.github.io/tools</a>. No code, no
+      build — just files.
+    </p>
+
+    <p>
+      The tools app never uploads what you open in it. Speech recognition needs a model
+      from somewhere, and fetching it from a third-party CDN would tell that CDN you
+      opened the tool. This repo exists so it doesn't have to: it sits on the
+      <strong>same origin</strong> as the app, one directory over.
+    </p>
+
+    <h2>Served here</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>Path</th>
+          <th>Size</th>
+          <th>What</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><code>models/whisper-tiny/</code></td>
+          <td class="n">45 MB</td>
+          <td>Whisper tiny, int8 — fast, rougher</td>
+        </tr>
+        <tr>
+          <td><code>models/whisper-base/</code></td>
+          <td class="n">81 MB</td>
+          <td>Whisper base, int8 — slower, better</td>
+        </tr>
+        <tr>
+          <td><code>ort/&lt;version&gt;/</code></td>
+          <td class="n">35 MB</td>
+          <td>ONNX Runtime wasm, plain + asyncify</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h2>Notes</h2>
+    <p class="note">
+      Both models are multilingual, not the <code>.en</code> variants — they quantise to
+      identical sizes, so English-only builds trade 98 languages for nothing. The runtime
+      path is version-pinned so a stale pairing 404s loudly instead of loading a runtime
+      that disagrees with its caller. Whisper <em>small</em> is absent because its decoder
+      is 156 MB and GitHub blocks any single file over 100 MiB, with Git LFS unavailable
+      on Pages.
+    </p>
+
+    <h2>Licences</h2>
+    <p class="note">
+      Weights are <a href="https://huggingface.co/onnx-community">onnx-community</a>'s
+      ONNX exports of OpenAI Whisper (MIT). Binaries are
+      <a href="https://github.com/microsoft/onnxruntime">ONNX Runtime</a> (MIT). Neither
+      modified — byte-for-byte as published.
+    </p>
+  </body>
+</html>
