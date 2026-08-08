@@ -96,7 +96,7 @@ MODELS=(
   onnx-community/whisper-tiny
   onnx-community/whisper-base
   distil-whisper/distil-small.en
-  onnx-community/BiRefNet_lite-ONNX
+  Xenova/modnet
 )
 
 # Split anything at or above this, in MiB.
@@ -144,8 +144,8 @@ WEIGHTS=(
 # no int8 export upstream, so this is the small one.
 files_for() {
   case "$1" in
-    BiRefNet_lite-ONNX)
-      printf '%s\n' config.json preprocessor_config.json onnx/model_fp16.onnx
+    modnet)
+      printf '%s\n' config.json preprocessor_config.json onnx/model_quantized.onnx
       ;;
     *)
       printf '%s\n' "${SUPPORT[@]}" "${WEIGHTS[@]}"
@@ -157,7 +157,7 @@ files_for() {
 # failing is fatal — a silently absent weight file is a model that half-loads.
 optional_for() {
   case "$1" in
-    BiRefNet_lite-ONNX) printf '%s\n' ;;
+    modnet) printf '%s\n' ;;
     *) printf '%s\n' added_tokens.json ;;
   esac
 }
