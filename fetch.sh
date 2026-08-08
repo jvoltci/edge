@@ -96,6 +96,7 @@ MODELS=(
   onnx-community/whisper-tiny
   onnx-community/whisper-base
   distil-whisper/distil-small.en
+  onnx-community/BiRefNet_lite-ONNX
 )
 
 # Split anything at or above this, in MiB.
@@ -130,6 +131,37 @@ WEIGHTS=(
   onnx/decoder_model_merged_quantized.onnx
 )
 
+# Which files a given model actually has.
+#
+# The two arrays above describe whisper's shape: an encoder, a merged decoder,
+# and a tokenizer. A segmentation model has none of that — it is one graph plus
+# a preprocessor config, and no tokenizer at all. Asking for tokenizer.json
+# would abort the run on a file that was never supposed to exist, so the shape
+# is chosen per model rather than assumed.
+#
+# BiRefNet_lite is served fp16, not fp32: both produce the same cut-out (checked
+# on a real image before publishing) and fp16 is 109 MB against 213 MB. There is
+# no int8 export upstream, so this is the small one.
+files_for() {
+  case "$1" in
+    BiRefNet_lite-ONNX)
+      printf '%s\n' config.json preprocessor_config.json onnx/model_fp16.onnx
+      ;;
+    *)
+      printf '%s\n' "${SUPPORT[@]}" "${WEIGHTS[@]}"
+      ;;
+  esac
+}
+
+# Files that may legitimately be missing upstream, per model. Everything else
+# failing is fatal — a silently absent weight file is a model that half-loads.
+optional_for() {
+  case "$1" in
+    BiRefNet_lite-ONNX) printf '%s\n' ;;
+    *) printf '%s\n' added_tokens.json ;;
+  esac
+}
+
 get() { # url dest
   mkdir -p "$(dirname "$2")"
   curl -fSL --retry 3 --retry-delay 2 -o "$2" "$1"
@@ -138,16 +170,18 @@ get() { # url dest
 echo "==> models"
 for repo in "${MODELS[@]}"; do
   m="${repo##*/}"
-  for f in "${SUPPORT[@]}" "${WEIGHTS[@]}"; do
+  optional="$(optional_for "$m")"
+  for f in $(files_for "$m"); do
     url="https://huggingface.co/$repo/resolve/main/$f"
     dest="models/$m/$f"
     # added_tokens.json is absent from some exports; every other file is required.
     if ! get "$url" "$dest" 2>/dev/null; then
       rm -f "$dest"
-      case "$f" in
-        added_tokens.json) echo "    $m/$f absent upstream, skipped" ;;
-        *) echo "!!! $m/$f FAILED and is not optional" >&2; exit 1 ;;
-      esac
+      if printf '%s\n' $optional | grep -qxF "$f"; then
+        echo "    $m/$f absent upstream, skipped"
+      else
+        echo "!!! $m/$f FAILED and is not optional" >&2; exit 1
+      fi
       continue
     fi
     printf '    %10d  %s\n' "$(wc -c <"$dest")" "$dest"

@@ -1,1 +1,6 @@
-{}
+{
+  "BiRefNet_lite-ONNX/onnx/model_fp16.onnx": {
+    "bytes": 114538221,
+    "parts": 2
+  }
+}
