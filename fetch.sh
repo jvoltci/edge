@@ -238,11 +238,19 @@ echo "==> onnxruntime-web $ONNX_VERSION"
 # plain build for Safari, asyncify everywhere else. Serving only one would
 # silently break whichever half of the world got the other.
 mkdir -p "ort/$ONNX_VERSION"
+# The jsep pair is new and is not optional for anything that wants WebGPU.
+# Requesting device:"webgpu" against the plain build fails at session creation
+# with "no available backend found. ERR: [webgpu] TypeError:
+# eP(...).webgpuInit is not a function" — the WebGPU execution provider lives in
+# the JSEP build and nowhere else. JSEP also still runs on plain wasm, so it is
+# a superset rather than an alternative.
 for f in \
   ort-wasm-simd-threaded.mjs \
   ort-wasm-simd-threaded.wasm \
   ort-wasm-simd-threaded.asyncify.mjs \
-  ort-wasm-simd-threaded.asyncify.wasm
+  ort-wasm-simd-threaded.asyncify.wasm \
+  ort-wasm-simd-threaded.jsep.mjs \
+  ort-wasm-simd-threaded.jsep.wasm
 do
   cp "$ORT_SRC/$f" "ort/$ONNX_VERSION/$f"
   printf '    %10d  ort/%s/%s\n' "$(wc -c <"ort/$ONNX_VERSION/$f")" "$ONNX_VERSION" "$f"
