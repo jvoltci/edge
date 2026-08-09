@@ -256,4 +256,27 @@ do
   printf '    %10d  ort/%s/%s\n' "$(wc -c <"ort/$ONNX_VERSION/$f")" "$ONNX_VERSION" "$f"
 done
 
-echo "==> total $(du -sh models ort | awk '{print $1" "$2}' | tr '\n' ' ')"
+
+# ── duckdb-wasm ──────────────────────────────────────────────────────────────
+#
+# 34 MB, which is why it is here and not in the tools repo's public/ — that
+# would commit 34 MB into the app repo and ship it on every build.
+#
+# The "eh" bundle, not "coi": coi is the cross-origin-isolated build and needs
+# SharedArrayBuffer, which needs COOP/COEP headers GitHub Pages cannot send.
+# eh is the single-threaded exception-handling build and is what this project
+# can actually run. mvp is the older fallback and is 5 MB larger for less.
+DUCKDB_SRC="../tools/node_modules/@duckdb/duckdb-wasm/dist"
+if [ -d "$DUCKDB_SRC" ]; then
+  DUCKDB_VERSION="$(python3 -c "import json;print(json.load(open('../tools/node_modules/@duckdb/duckdb-wasm/package.json'))['version'])")"
+  echo "==> duckdb-wasm $DUCKDB_VERSION"
+  mkdir -p "duckdb/$DUCKDB_VERSION"
+  for f in duckdb-eh.wasm duckdb-browser-eh.worker.js; do
+    cp "$DUCKDB_SRC/$f" "duckdb/$DUCKDB_VERSION/$f"
+    printf '    %10d  duckdb/%s/%s\n' "$(wc -c <"duckdb/$DUCKDB_VERSION/$f")" "$DUCKDB_VERSION" "$f"
+  done
+else
+  echo "==> duckdb-wasm skipped (not installed in ../tools)"
+fi
+
+echo "==> total $(du -sh models ort duckdb 2>/dev/null | awk '{print $1" "$2}' | tr '\n' ' ')"
