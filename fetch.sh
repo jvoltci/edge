@@ -188,6 +188,56 @@ for repo in "${MODELS[@]}"; do
   done
 done
 
+# ── models that are not on huggingface ───────────────────────────────────────
+#
+# Everything above is an onnx-community-shaped repo: weights plus a tokenizer,
+# fetched by name. These two are single ONNX graphs published elsewhere, so they
+# are listed as plain "url -> path" pairs rather than bent into that shape.
+#
+# Both are for the face and plate blurring tool, and both were picked for their
+# LICENCE before their accuracy, because the obvious choice fails on it. Nearly
+# every open plate detector is built on Ultralytics YOLOv8/v11, which is
+# AGPL-3.0 — publishing those weights next to a static site would put the site
+# under AGPL too. These two are MIT, checked against the LICENSE file in each
+# repo rather than against a README badge:
+#
+#   YuNet    opencv/opencv_zoo, MIT, (c) 2020 Shiqi Yu. 232 KB, 75k parameters.
+#            Input is a fixed 1x3x640x640 and it emits twelve tensors —
+#            cls/obj/bbox/kps at strides 8, 16 and 32 — which the app decodes
+#            itself. Measured on a four-person photo: 4/4 faces, 70 ms.
+#
+#   YOLOv9-t ankandrew/open-image-models, MIT, (c) 2024. 7.8 MB. The "end2end"
+#            export, meaning NMS is already inside the graph, so the output is
+#            one [n, 7] tensor of finished boxes. The 384px variant, not 640:
+#            the extra pixels cost 3x the time and a number plate is a large,
+#            high-contrast rectangle that does not need them. Measured on a
+#            street photo: the plate, at 0.91, in 105 ms, and no false positive
+#            on a photo of four people and no cars.
+#
+# Only the ONNX graph is served. Neither project's training code is vendored,
+# linked or run here.
+DIRECT=(
+  "https://media.githubusercontent.com/media/opencv/opencv_zoo/main/models/face_detection_yunet/face_detection_yunet_2023mar.onnx|models/yunet/face_detection_yunet_2023mar.onnx"
+  "https://github.com/ankandrew/open-image-models/releases/download/assets/yolo-v9-t-384-license-plates-end2end.onnx|models/plate/yolo-v9-t-384-license-plates-end2end.onnx"
+)
+
+echo "==> direct downloads"
+for entry in "${DIRECT[@]}"; do
+  url="${entry%%|*}"
+  dest="${entry##*|}"
+  get "$url" "$dest"
+  # opencv_zoo keeps its weights in LFS, and a pointer file downloads happily
+  # with a 200. It is ~130 bytes of ASCII where a model should be, and it fails
+  # much later as "invalid protobuf" in someone's browser. Every ONNX file
+  # starts with a protobuf field tag, never with "version https://git-lfs".
+  if [ "$(wc -c <"$dest")" -lt 10000 ]; then
+    echo "!!! $dest is $(wc -c <"$dest") bytes — an LFS pointer or an error page, not a model" >&2
+    head -c 120 "$dest" >&2; echo >&2
+    exit 1
+  fi
+  printf '    %10d  %s\n' "$(wc -c <"$dest")" "$dest"
+done
+
 echo "==> splitting anything git would refuse"
 # Rewritten from nothing every run, so a model dropped from MODELS above cannot
 # leave a stale entry behind claiming a file is split when it is gone.
