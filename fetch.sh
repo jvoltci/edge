@@ -216,9 +216,23 @@ done
 #
 # Only the ONNX graph is served. Neither project's training code is vendored,
 # linked or run here.
+#   HT-Demucs  166 MB  MIT, StemSplitio/htdemucs-onnx, an ONNX export of Meta's
+#              htdemucs. Waveform in, waveform out: one [1,2,343980] tensor of
+#              7.8 s stereo becomes [1,4,2,343980], drums/bass/other/vocals. No
+#              spectrogram work at all, unlike every masking model.
+#
+#              It is the first file here big enough to need the splitter above,
+#              which is why parts.json has been {} since it was written.
+#
+#              It also only loads with graph optimisation DISABLED. With the
+#              default it dies at session creation with std::bad_alloc, and that
+#              wrongly looked like "too big for a browser" for a long time — it
+#              is the optimiser's temporaries that blow the wasm heap, not the
+#              weights. See split-song/lib/separate.ts.
 DIRECT=(
   "https://media.githubusercontent.com/media/opencv/opencv_zoo/main/models/face_detection_yunet/face_detection_yunet_2023mar.onnx|models/yunet/face_detection_yunet_2023mar.onnx"
   "https://github.com/ankandrew/open-image-models/releases/download/assets/yolo-v9-t-384-license-plates-end2end.onnx|models/plate/yolo-v9-t-384-license-plates-end2end.onnx"
+  "https://huggingface.co/StemSplitio/htdemucs-onnx/resolve/main/htdemucs_fp16weights.onnx|models/htdemucs/htdemucs_fp16weights.onnx"
 )
 
 echo "==> direct downloads"

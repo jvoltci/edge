@@ -1,1 +1,6 @@
-{}
+{
+  "htdemucs/htdemucs_fp16weights.onnx": {
+    "bytes": 165612636,
+    "parts": 2
+  }
+}
