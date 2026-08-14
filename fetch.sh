@@ -229,10 +229,32 @@ done
 #              wrongly looked like "too big for a browser" for a long time — it
 #              is the optimiser's temporaries that blow the wasm heap, not the
 #              weights. See split-song/lib/separate.ts.
+#
+#   GTCRN      535,190 bytes. MIT, (c) 2024 Rong Xiaobin, checked against the
+#              LICENSE file at Xiaobin-Rong/gtcrn rather than a badge. 48.2k
+#              parameters — the smallest thing this repo serves by three orders
+#              of magnitude, and the whole reason /clean-audio can exist.
+#
+#              Two exports sit side by side upstream: gtcrn.onnx (352,084 B) and
+#              gtcrn_simple.onnx (535,190 B), the onnxsim-simplified one. The
+#              larger file is the one to serve: upstream's own inference script
+#              loads the _simple graph, and both were run here frame-by-frame
+#              over 32 frames of tones-plus-noise with identical results — max
+#              abs difference 0.0. Same model, so the extra 183 KB buys the
+#              graph upstream actually tests against.
+#
+#              Streaming, not whole-utterance, and that shapes the app code. One
+#              STFT frame in: mix [1,257,1,2] at 16 kHz, n_fft 512, hop 256,
+#              window hann(512)^0.5. Out: enh, the same shape. Three recurrent
+#              caches must be threaded frame to frame — conv_cache
+#              [2,1,16,16,33], tra_cache [2,3,1,1,16], inter_cache [2,1,33,16] —
+#              all zeros on the first frame. Tensor names and shapes read out of
+#              the graph with onnxruntime, not from the paper.
 DIRECT=(
   "https://media.githubusercontent.com/media/opencv/opencv_zoo/main/models/face_detection_yunet/face_detection_yunet_2023mar.onnx|models/yunet/face_detection_yunet_2023mar.onnx"
   "https://github.com/ankandrew/open-image-models/releases/download/assets/yolo-v9-t-384-license-plates-end2end.onnx|models/plate/yolo-v9-t-384-license-plates-end2end.onnx"
   "https://huggingface.co/StemSplitio/htdemucs-onnx/resolve/main/htdemucs_fp16weights.onnx|models/htdemucs/htdemucs_fp16weights.onnx"
+  "https://raw.githubusercontent.com/Xiaobin-Rong/gtcrn/main/stream/onnx_models/gtcrn_simple.onnx|models/gtcrn/gtcrn_simple.onnx"
 )
 
 echo "==> direct downloads"
