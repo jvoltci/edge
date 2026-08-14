@@ -276,11 +276,37 @@ done
 #              [2,1,16,16,33], tra_cache [2,3,1,1,16], inter_cache [2,1,33,16] —
 #              all zeros on the first frame. Tensor names and shapes read out of
 #              the graph with onnxruntime, not from the paper.
+#
+#   PP-OCRv6 tiny  6.4 MB for the pair. Apache-2.0 on the model mirror
+#              (PT-Perkasa-Pilar-Utama/ppu-paddle-ocr-models), MIT on the SDK
+#              that drives them (ppu-paddle-ocr). ORT format rather than plain
+#              ONNX — the .ort runtime format is version-sensitive, and all four
+#              tiers were loaded under the pinned onnxruntime-web 1.24.3 before
+#              anything was mirrored here.
+#
+#              The TINY tier is served and the small one is not, which is the
+#              opposite of what the model card's accuracy table implies. Measured
+#              on a synthetic contract page rendered as a phone photo — 1 degree
+#              of skew, a lighting gradient and JPEG noise:
+#
+#                            download    page (Chromium wasm)   CER
+#                tiny         6.4 MB            369 ms          0.00%
+#                small       31.3 MB           1325 ms          0.00%
+#
+#              Under onnxruntime-node the small tier was actually WORSE on the
+#              same page (0.38%, reading "Stret" for "Street"). Five times the
+#              bytes and three times the wall clock for no accuracy is not a
+#              trade worth offering. The one real reason to revisit is CJK: tiny
+#              carries a ~6.9k-character dictionary that drops rare CJK and kana,
+#              where small carries the full 50-language set.
 DIRECT=(
   "https://media.githubusercontent.com/media/opencv/opencv_zoo/main/models/face_detection_yunet/face_detection_yunet_2023mar.onnx|models/yunet/face_detection_yunet_2023mar.onnx"
   "https://github.com/ankandrew/open-image-models/releases/download/assets/yolo-v9-t-384-license-plates-end2end.onnx|models/plate/yolo-v9-t-384-license-plates-end2end.onnx"
   "https://huggingface.co/StemSplitio/htdemucs-onnx/resolve/main/htdemucs_fp16weights.onnx|models/htdemucs/htdemucs_fp16weights.onnx"
   "https://raw.githubusercontent.com/Xiaobin-Rong/gtcrn/main/stream/onnx_models/gtcrn_simple.onnx|models/gtcrn/gtcrn_simple.onnx"
+  "https://media.githubusercontent.com/media/PT-Perkasa-Pilar-Utama/ppu-paddle-ocr-models/main/detection/ort/PP-OCRv6_tiny_det.ort|models/ppocrv6-tiny/PP-OCRv6_tiny_det.ort"
+  "https://media.githubusercontent.com/media/PT-Perkasa-Pilar-Utama/ppu-paddle-ocr-models/main/recognition/ort/PP-OCRv6_tiny_rec.ort|models/ppocrv6-tiny/PP-OCRv6_tiny_rec.ort"
+  "https://raw.githubusercontent.com/PT-Perkasa-Pilar-Utama/ppu-paddle-ocr-models/main/recognition/ppocrv6_tiny_dict.txt|models/ppocrv6-tiny/ppocrv6_tiny_dict.txt"
 )
 
 echo "==> direct downloads"
