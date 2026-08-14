@@ -97,6 +97,26 @@ MODELS=(
   onnx-community/whisper-base
   distil-whisper/distil-small.en
   Xenova/modnet
+  # Diarization — "who said what" — is two models, not one, and they are both
+  # tiny. Segmentation says WHERE someone is speaking; the speaker embedder says
+  # WHO, by turning a stretch of speech into a 256-dimension vector that can be
+  # clustered. Neither is gated and both were run frame by frame before being
+  # published here.
+  #
+  #   pyannote-segmentation-3.0  MIT. int8 1,542,304 B. Takes 10 s of 16 kHz mono
+  #                              as [1,1,160000] and returns [1,589,7] — 7
+  #                              powerset classes over 3 local speakers at 58.9
+  #                              frames a second, so overlapping speech is a
+  #                              class of its own rather than a coin toss.
+  #   wespeaker-resnet34-LM      CC-BY-4.0, so it needs attribution, not a
+  #                              licence fee. int8 6,685,123 B. Takes an 80-bin
+  #                              Kaldi fbank as [1,T,80] and returns [1,256].
+  #
+  # Measured here before publishing, on 20 s of two synthesised speakers taking
+  # five turns: 2 speakers found, and every turn assigned to the right one
+  # (cosine 0.76-0.94 within a speaker, 0.02-0.09 across).
+  onnx-community/pyannote-segmentation-3.0
+  onnx-community/wespeaker-voxceleb-resnet34-LM
 )
 
 # Split anything at or above this, in MiB.
@@ -147,6 +167,11 @@ files_for() {
     modnet)
       printf '%s\n' config.json preprocessor_config.json onnx/model_quantized.onnx
       ;;
+    # int8 rather than the "quantized" alias: the two are four bytes apart
+    # upstream, and int8 is the file that was actually measured.
+    pyannote-segmentation-3.0|wespeaker-voxceleb-resnet34-LM)
+      printf '%s\n' config.json onnx/model_int8.onnx
+      ;;
     *)
       printf '%s\n' "${SUPPORT[@]}" "${WEIGHTS[@]}"
       ;;
@@ -158,6 +183,7 @@ files_for() {
 optional_for() {
   case "$1" in
     modnet) printf '%s\n' ;;
+    pyannote-segmentation-3.0|wespeaker-voxceleb-resnet34-LM) printf '%s\n' config.json ;;
     *) printf '%s\n' added_tokens.json ;;
   esac
 }
