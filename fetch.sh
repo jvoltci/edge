@@ -317,7 +317,42 @@ done
 #              trade worth offering. The one real reason to revisit is CJK: tiny
 #              carries a ~6.9k-character dictionary that drops rare CJK and kana,
 #              where small carries the full 50-language set.
+#
+#   SPAN 4x    1.7 MB, and the smallest useful model on this host by an order of
+#              magnitude. Swift Parameter-free Attention Network — a CNN, which
+#              is the whole reason it is here. It won BOTH tracks of the NTIRE
+#              2024 efficient super-resolution challenge, overall and runtime.
+#
+#              The tools repo's research doc nominated Swin2SR (21.5 MB) for
+#              upscaling. That was measured and rejected. Swin2SR is a
+#              transformer, and in a browser on one wasm thread a 128x128 input
+#              did not finish inside a 180-second timeout. SPAN does the same
+#              128x128 in 0.26 s, at 4x rather than 2x:
+#
+#                            wasm, 1 thread          s per Mpx of input
+#                SPAN 4x     128 -> 512   0.26 s            16.1
+#                SPAN 4x     256 -> 1024  1.08 s            16.5
+#                SPAN 4x     384 -> 1536  2.37 s            16.1
+#
+#              Linear across a 9x range, which is what makes tiling free. And
+#              tiling is EXACT, not an approximation: with 24 px of overlap the
+#              stitched result is bit-identical to running the whole image in one
+#              go (measured at Infinity dB PSNR against it).
+#
+#              LICENCE, and it is the reason this file names two repos. The
+#              weights are 4xNomosUni_span_multijpg by Helaman (Phips),
+#              CC-BY-4.0 — declared on the author's own repo and on
+#              openmodeldb.info. CC-BY permits commercial use and REQUIRES
+#              attribution, so the tools page carries the credit visibly rather
+#              than burying it in a comment. The ONNX export below is nesaorg's,
+#              whose repo declares no licence of its own; the weights' licence is
+#              what governs, and the export is pinned by size and hash here so a
+#              silent swap would be caught:
+#
+#                1,717,409 bytes
+#                sha256 a435b009109e72c50ce95927dab0a6dde63e594cf57ba5a18ba63da67355698a
 DIRECT=(
+  "https://huggingface.co/nesaorg/4xNomosUni_span_multijpg_fp32_opset17/resolve/main/4xNomosUni_span_multijpg_fp32_opset17.onnx|models/span/4xNomosUni_span_multijpg_fp32_opset17.onnx"
   "https://media.githubusercontent.com/media/opencv/opencv_zoo/main/models/face_detection_yunet/face_detection_yunet_2023mar.onnx|models/yunet/face_detection_yunet_2023mar.onnx"
   "https://github.com/ankandrew/open-image-models/releases/download/assets/yolo-v9-t-384-license-plates-end2end.onnx|models/plate/yolo-v9-t-384-license-plates-end2end.onnx"
   "https://huggingface.co/StemSplitio/htdemucs-onnx/resolve/main/htdemucs_fp16weights.onnx|models/htdemucs/htdemucs_fp16weights.onnx"
