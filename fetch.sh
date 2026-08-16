@@ -117,6 +117,17 @@ MODELS=(
   # (cosine 0.76-0.94 within a speaker, 0.02-0.09 across).
   onnx-community/pyannote-segmentation-3.0
   onnx-community/wespeaker-voxceleb-resnet34-LM
+  # Semantic search over a person's own folder. MongoDB's LEAF-IR distilled to
+  # 23M parameters, Apache-2.0, 578k downloads a month upstream. int8 is the
+  # export served: 22,954,752 B of weights plus a 220,597 B graph and a 533,808 B
+  # tokenizer, so the whole thing is 23.7 MB.
+  #
+  # Measured before publishing, on six contract and handbook paragraphs with four
+  # questions that share no words with their answers ("can I keep a cat?" against
+  # a clause about pets): 4/4 retrieved the right paragraph, cosine 0.52-0.67, at
+  # 3 ms per paragraph to embed. That word-free matching is the entire point — a
+  # Ctrl-F cannot do it.
+  onnx-community/mdbr-leaf-ir-ONNX
 )
 
 # Split anything at or above this, in MiB.
@@ -172,6 +183,12 @@ files_for() {
     pyannote-segmentation-3.0|wespeaker-voxceleb-resnet34-LM)
       printf '%s\n' config.json onnx/model_int8.onnx
       ;;
+    # A sentence transformer needs its tokenizer, and its weights live beside the
+    # graph in an external .onnx_data file — fetching only the .onnx gives a model
+    # that loads and produces nothing.
+    mdbr-leaf-ir-ONNX)
+      printf '%s\n' config.json tokenizer.json tokenizer_config.json special_tokens_map.json vocab.txt onnx/model_quantized.onnx onnx/model_quantized.onnx_data
+      ;;
     *)
       printf '%s\n' "${SUPPORT[@]}" "${WEIGHTS[@]}"
       ;;
@@ -184,6 +201,7 @@ optional_for() {
   case "$1" in
     modnet) printf '%s\n' ;;
     pyannote-segmentation-3.0|wespeaker-voxceleb-resnet34-LM) printf '%s\n' config.json ;;
+    mdbr-leaf-ir-ONNX) printf '%s\n' ;;
     *) printf '%s\n' added_tokens.json ;;
   esac
 }
