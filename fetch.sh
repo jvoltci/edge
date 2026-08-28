@@ -351,7 +351,36 @@ done
 #
 #                1,717,409 bytes
 #                sha256 a435b009109e72c50ce95927dab0a6dde63e594cf57ba5a18ba63da67355698a
+#
+# ── MI-GAN, for the watermark remover ────────────────────────────────────────
+#
+# migan  MIT, Picsart AI Research, ICCV 2023. 28,079,181 bytes.
+#        sha256 6f1f3530a1a2324b19752018ce756088b07973cda8d7d890034ace5c8a48c40b
+#
+#        The "pipeline" export, not the bare generator, and the difference
+#        matters: this graph does its own crop-around-the-mask, resize to 512,
+#        normalisation and paste-back, so it takes an image at ANY resolution
+#        and returns it with only the masked region changed. The bare
+#        generator would make the caller reimplement all of that, and get the
+#        normalisation subtly wrong.
+#
+#        The contract was read out of the graph rather than out of a README:
+#          image  uint8 [batch, 3, height, width]  planar RGB
+#          mask   uint8 [batch, 1, height, width]  255 = keep, 0 = fill
+#          result uint8 [batch, 3, height, width]
+#
+#        Verified before publishing, by running it: a flat blue field with a
+#        white stripe masked out came back at the field's own colour (mean RGB
+#        41.5/121.2/200.7 against a true 40/120/200) and every unmasked pixel
+#        was returned bit-identical. That last part is what lets the tool paste
+#        the output back wholesale instead of compositing by hand.
+#
+#        Chosen over the 0.2B diffusion inpainters for size: 27 MB against
+#        1.24 GB, one forward pass against 20 denoising steps. On a watermark,
+#        where most of the hole is recovered from neighbouring frames before
+#        the model sees it, the extra gigabyte buys very little.
 DIRECT=(
+  "https://huggingface.co/andraniksargsyan/migan/resolve/main/migan_pipeline_v2.onnx|models/migan/migan_pipeline_v2.onnx"
   "https://huggingface.co/nesaorg/4xNomosUni_span_multijpg_fp32_opset17/resolve/main/4xNomosUni_span_multijpg_fp32_opset17.onnx|models/span/4xNomosUni_span_multijpg_fp32_opset17.onnx"
   "https://media.githubusercontent.com/media/opencv/opencv_zoo/main/models/face_detection_yunet/face_detection_yunet_2023mar.onnx|models/yunet/face_detection_yunet_2023mar.onnx"
   "https://github.com/ankandrew/open-image-models/releases/download/assets/yolo-v9-t-384-license-plates-end2end.onnx|models/plate/yolo-v9-t-384-license-plates-end2end.onnx"
