@@ -476,6 +476,31 @@ do
   printf '    %10d  ort/%s/%s\n' "$(wc -c <"ort/$ONNX_VERSION/$f")" "$ONNX_VERSION" "$f"
 done
 
+# ── onnxruntime-web 1.29.0, the native WebGPU runtime ────────────────────────
+#
+# A SECOND version, deliberately, and only the asyncify pair. The Moebius
+# quality tier moved to 1.29's native WebGPU execution provider (the jsep
+# build is deprecated upstream, and its WebGPU never got fp16 kernels for
+# half the ops the model needs) — measured on an M5 Pro, the same UNet step
+# went 872ms -> 592ms just from the runtime swap. Everything else in the
+# tools repo stays on 1.24.3: Whisper CANNOT move (see the pin above), and
+# the other tools get no benefit worth re-verifying twenty suites for.
+#
+# The tools repo installs it as the npm alias `ort129`, so the dist lives
+# under that name.
+ORT_WEBGPU_VERSION="1.29.0"
+ORT129_SRC="../tools/node_modules/ort129/dist"
+: "${ORT129_SRC:?}"
+[ -d "$ORT129_SRC" ] || { echo "ort129 alias not installed in the tools repo" >&2; exit 1; }
+mkdir -p "ort/$ORT_WEBGPU_VERSION"
+for f in \
+  ort-wasm-simd-threaded.asyncify.mjs \
+  ort-wasm-simd-threaded.asyncify.wasm
+do
+  cp "$ORT129_SRC/$f" "ort/$ORT_WEBGPU_VERSION/$f"
+  printf '    %10d  ort/%s/%s\n' "$(wc -c <"ort/$ORT_WEBGPU_VERSION/$f")" "$ORT_WEBGPU_VERSION" "$f"
+done
+
 
 # ── duckdb-wasm ──────────────────────────────────────────────────────────────
 #
