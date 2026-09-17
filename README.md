@@ -39,6 +39,7 @@ and here does not even need to.
 |---|---|---|
 | `models/whisper-tiny/` | 45 MB | Whisper tiny, int8. Fast, rougher. |
 | `models/whisper-base/` | 81 MB | Whisper base, int8. Slower, noticeably better. |
+| `models/hand-landmarker/` | 30 MB | MediaPipe HandLandmarker 1.0.1 (Apache-2.0): `hand_landmarker.task` float16 and the tasks-vision wasm runtime (simd + nosimd), for tools/sketch Air mode. Bytes copied from `@mediapipe/tasks-vision@1.0.1` and Google's model bucket, 17 Sep 2026. |
 | `ort/<version>/` | 35 MB | ONNX Runtime wasm, plain + asyncify builds. |
 
 Both models are **multilingual**, not the `.en` variants. This costs nothing:
